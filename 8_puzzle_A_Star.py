@@ -2,14 +2,12 @@ import heapq
 from itertools import count
 from copy import deepcopy
 
-# Define your GOAL matrix here (can be changed)
 GOAL = [
     [1, 2, 3],
     [8, 0, 4],
     [7, 6, 5]
 ]
 
-# Heuristic: number of misplaced tiles compared to GOAL (ignoring blank=0)
 def misplaced(puzzle):
     count = 0
     for i in range(3):
@@ -26,15 +24,15 @@ def get_blank_position(puzzle):
 
 def get_neighbors(puzzle):
     x, y = get_blank_position(puzzle)
-    moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    moves = [(-1, 0, 'U'), (1, 0, 'D'), (0, -1, 'L'), (0, 1, 'R')]
     neighbors = []
 
-    for dx, dy in moves:
+    for dx, dy, move in moves:
         nx, ny = x + dx, y + dy
         if 0 <= nx < 3 and 0 <= ny < 3:
             new_puzzle = deepcopy(puzzle)
             new_puzzle[x][y], new_puzzle[nx][ny] = new_puzzle[nx][ny], new_puzzle[x][y]
-            neighbors.append(new_puzzle)
+            neighbors.append((new_puzzle, move))
 
     return neighbors
 
@@ -51,12 +49,22 @@ def print_with_heuristic(matrix, g):
     return f
 
 class Node:
-    def __init__(self, state, depth, parent=None):
+    def __init__(self, state, depth, parent=None, move=None):
         self.state = state
         self.depth = depth
         self.h = misplaced(state)
         self.f = self.h + self.depth
         self.parent = parent
+        self.move = move  # Move made to get here (L, R, U, D)
+
+def reconstruct_path(node):
+    path = []
+    current = node
+    while current.parent is not None:
+        path.append(current.move)
+        current = current.parent
+    path.reverse()
+    return path
 
 def print_space_tree(start_state):
     counter = count()
@@ -77,13 +85,15 @@ def print_space_tree(start_state):
         print("-" * 30)
         if current.state == GOAL:
             print("🎯 Goal reached!")
+            path = reconstruct_path(current)
+            print("Path to goal:", " -> ".join(path))
             return
 
         children = []
-        for neighbor in get_neighbors(current.state):
+        for neighbor, move in get_neighbors(current.state):
             key = tuple(tuple(row) for row in neighbor)
             if key not in visited:
-                child_node = Node(neighbor, current.depth + 1, current)
+                child_node = Node(neighbor, current.depth + 1, current, move)
                 children.append(child_node)
 
         if not children:
@@ -96,12 +106,10 @@ def print_space_tree(start_state):
             print()
 
         print("=" * 30)
-
-        # Choose child with minimum f to continue
         next_node = min(children, key=lambda n: n.f)
         heapq.heappush(open_heap, (next_node.f, next(counter), next_node))
 
-# Example usage: change start_state as you want
+
 start_state = [
     [2, 8, 3],
     [1, 6, 4],
